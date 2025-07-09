@@ -32,10 +32,10 @@ module votrax_sc01a (
     reg [2:0] stbsr;
     reg input_phone_latch_stb, input_phone_latch_rom;
     reg [5:0] p_stb, p_rom;
-    reg [3:0] rom_param, rom_clvd;
-    reg [6:0] rom_duration;
-    reg rom_cl;
-    reg rom_muxed_fx_out;
+    wire [3:0] rom_param, rom_clvd;
+    wire [6:0] rom_duration;
+    wire rom_cl;
+    wire rom_muxed_fx_out;
     reg sram_w, sram_enable_w, sram_enable_hold, sram_r, sram_alt_r;
     reg latch_sram_r, latch_sram_alt_r;
     reg carry1_in, carry1_out, carry2_in, carry2_out;
@@ -49,7 +49,8 @@ module votrax_sc01a (
     reg [17:0] phc;
     reg [11:0] phc2;
     reg cv_reached, cl_reached, cl_value;
-    reg pause, silent, clc_reset;
+    wire pause;
+    reg silent, clc_reset;
     reg [29:0] noise;
     
     // Clock generation - creating clk_0 and clk_1 from master clock
@@ -323,25 +324,23 @@ module votrax_sc01a (
     end
 
     // Closure/Voicing detection (clv_detect function)
-    always @(negedge input_phone_latch_rom or negedge reset_n) begin
+    always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
             cv_reached <= 1'b0;
             cl_reached <= 1'b0;
         end else begin
-            cv_reached <= 1'b1;
-            cl_reached <= 1'b1;
-        end
-    end
-    
-    always @(posedge clvd_detect or posedge pulse_80Hz or negedge reset_n) begin
-        if (!reset_n) begin
-            cv_reached <= 1'b0;
-            cl_reached <= 1'b0;
-        end else if (!clvd_detect && !pulse_80Hz) begin
-            if (!rom_hsel_f1)
-                cv_reached <= 1'b0;
-            if (!rom_hsel_fa)
-                cl_reached <= 1'b0;
+            // Set on phone latch
+            if (!input_phone_latch_rom) begin
+                cv_reached <= 1'b1;
+                cl_reached <= 1'b1;
+            end
+            // Clear conditionally on clvd_detect or pulse_80Hz
+            else if (clvd_detect || pulse_80Hz) begin
+                if (!rom_hsel_f1)
+                    cv_reached <= 1'b0;
+                if (!rom_hsel_fa)
+                    cl_reached <= 1'b0;
+            end
         end
     end
     
