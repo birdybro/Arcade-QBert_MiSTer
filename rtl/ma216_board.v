@@ -83,9 +83,10 @@ always @(posedge clk)
 // ===================================================================
 // Generate 720KHz clock from main clock (assuming main clk is much higher)
 // Adjust DIVISOR based on your main clock frequency
-// For 50MHz: 50,000,000 / 720,000 = ~69.4, use 70
+// For 50MHz: 50,000,000 / 720,000 = ~69.4, use 70 = 714kHz clock
+// For 50MHz alternate: 50MHz/69 = 724.6kHz
 // For 48MHz: 48,000,000 / 720,000 = ~66.7, use 67
-parameter VOTRAX_CLK_DIV = 70; // Adjust based on your main clock frequency
+parameter VOTRAX_CLK_DIV = 69; // Adjust based on your main clock frequency
 
 reg [$clog2(VOTRAX_CLK_DIV)-1:0] votrax_clk_div;
 reg votrax_clk;
@@ -119,7 +120,8 @@ always @(posedge clk or posedge reset) begin
   end else begin
     votrax_strobe_prev <= votrax_strobe;
     if (~U4_O[2] && WE) begin // CPU write to Votrax address
-      votrax_phone_latch <= ~DBo[5:0]; // Invert as per original interface
+      // votrax_phone_latch <= ~DBo[5:0]; // Invert as per original interface
+      votrax_phone_latch <= DBo[5:0]; // use without inversion
     end
   end
 end
@@ -128,16 +130,21 @@ end
 assign votrax_strobe_edge = votrax_strobe && !votrax_strobe_prev;
 
 // Strobe generation - pulse when CPU writes to Votrax
+reg votrax_write_detect;
+reg votrax_write_prev;
+
 always @(posedge clk or posedge reset) begin
-  if (reset) begin
-    votrax_strobe <= 0;
-  end else begin
-    if (~U4_O[2] && WE) begin
-      votrax_strobe <= 1;
-    end else if (votrax_strobe_edge) begin
-      votrax_strobe <= 0;
+    if (reset) begin
+        votrax_write_detect <= 0;
+        votrax_write_prev <= 0;
+        votrax_strobe <= 0;
+    end else begin
+        votrax_write_detect <= ~U4_O[2] && WE;
+        votrax_write_prev <= votrax_write_detect;
+        
+        // Generate single cycle strobe on write
+        votrax_strobe <= votrax_write_detect && !votrax_write_prev;
     end
-  end
 end
 
 // ===================================================================
