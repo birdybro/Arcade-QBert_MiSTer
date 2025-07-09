@@ -130,20 +130,14 @@ end
 assign votrax_strobe_edge = votrax_strobe && !votrax_strobe_prev;
 
 // Strobe generation - pulse when CPU writes to Votrax
-reg votrax_write_detect;
 reg votrax_write_prev;
-
 always @(posedge clk or posedge reset) begin
     if (reset) begin
-        votrax_write_detect <= 0;
         votrax_write_prev <= 0;
         votrax_strobe <= 0;
     end else begin
-        votrax_write_detect <= ~U4_O[2] && WE;
-        votrax_write_prev <= votrax_write_detect;
-        
-        // Generate single cycle strobe on write
-        votrax_strobe <= votrax_write_detect && !votrax_write_prev;
+        votrax_write_prev <= (~U4_O[2] && WE);
+        votrax_strobe <= (~U4_O[2] && WE) && !votrax_write_prev;
     end
 end
 
